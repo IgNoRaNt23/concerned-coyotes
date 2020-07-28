@@ -14,17 +14,14 @@ class ArticleField:
         return obj.__dict__.get(self.name)
 
     def __set__(self, obj, value) -> None:
-        if not isinstance(value, self.field_type):
+        if isinstance(value, self.field_type):
+            obj.__dict__[self.name] = value
+        else:
             err = (f"expected an instance of type "
                    f"'{self.field_type.__name__}' "
                    f"for attribute {repr(self.name)}, "
                    f"got '{type(value).__name__}' instead")
             raise TypeError(err)
-
-        obj.__dict__[self.name] = value
-
-        if self.name == "content":
-            obj.__dict__["last_edited"] = datetime.datetime.now()
 
 
 class Article:
@@ -43,14 +40,14 @@ class Article:
         content: str
     ):
         # Assign unique id
-        self.id = Article.id_counter
-        Article.id_counter += 1
+        self.id = self.__class__.id_counter
+        self.__class__.id_counter += 1
 
         # Article attributes
         self.title = title
         self.author = author
         self.publication_date = publication_date
-        self.content = content
+        self._content = content
 
         # Last edited
         self.last_edited = None
@@ -68,6 +65,15 @@ class Article:
     def __lt__(self, other: "Article") -> bool:
         return self.publication_date < other.publication_date
 
+    @property
+    def content(self) -> str:
+        return self._content
+
+    @content.setter
+    def content(self, new_content: str) -> None:
+        self._content = new_content
+        self.last_edited = datetime.datetime.now()
+    
     def short_introduction(self, n_characters: int) -> str:
         string = re.split(" |\n", self.content[:n_characters+1])[:-1]
         return " ".join(string).strip()
@@ -82,11 +88,10 @@ class Article:
 
         # Create a list with tuples (word, count, index)
         # to sort later
-        words = [(word, content_words.count(word), index)
-                 for index, word in enumerate(unique_words)
-                 if word]
+        words = [(word, content_words.count(word))
+                 for word in unique_words if word]
 
         # sort first by count, then by index
-        words.sort(key=lambda t: (t[1], -t[2]), reverse=True)
+        words.sort(key=lambda t: t[1], reverse=True)
 
-        return {word: count for word, count, _ in words[:n_words]}
+        return {word: count for word, count in words[:n_words]}
